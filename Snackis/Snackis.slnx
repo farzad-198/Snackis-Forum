@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Snackis.API/Snackis.API.csproj" Id="5461ad2c-95a5-4cd1-a6ef-78cc578566d7" />
+  <Project Path="Snackis.Core/Snackis.Core.csproj" />
+  <Project Path="Snackis.Infrastructure/Snackis.Infrastructure.csproj" Id="95463f64-c6c7-441f-8be0-0edddbf999ca" />
+  <Project Path="Snackis.Web/Snackis.Web.csproj" Id="1d2ab48e-2a2e-4599-91d3-1a88242bd0d5" />
+</Solution>
