@@ -1,0 +1,356 @@
+﻿@page "/admin/categories"
+
+@using Microsoft.JSInterop
+@using Snackis.Core.Entities
+@using Snackis.Core.Interfaces
+
+@inject IForumService ForumService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Manage Categories</PageTitle>
+
+<h1>Manage Categories</h1>
+
+<p class="text-muted">
+    Create and manage forum categories and topics.
+</p>
+
+
+@* Create Category *@
+
+<div class="card mb-4">
+    <div class="card-header">
+        Create a new category
+    </div>
+
+    <div class="card-body">
+        <EditForm Model="@newCategory"
+                  OnValidSubmit="@CreateCategoryAsync"
+                  FormName="create-category">
+
+            <div class="mb-3">
+                <label for="category-name"
+                       class="form-label">
+                    Name
+                </label>
+
+                <InputText id="category-name"
+                           class="form-control"
+                           @bind-Value="newCategory.Name" />
+            </div>
+
+            <div class="mb-3">
+                <label for="category-description"
+                       class="form-label">
+                    Description
+                </label>
+
+                <InputTextArea id="category-description"
+                               class="form-control"
+                               @bind-Value="newCategory.Description" />
+            </div>
+
+            <button type="submit"
+                    class="btn btn-primary"
+                    disabled="@isSaving">
+                Create Category
+            </button>
+        </EditForm>
+    </div>
+</div>
+
+
+@* Edit Category *@
+
+@if (categoryToEdit != null)
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            Edit category
+        </div>
+
+        <div class="card-body">
+            <EditForm Model="@categoryToEdit"
+                      OnValidSubmit="@UpdateCategoryAsync"
+                      FormName="edit-category">
+
+                <div class="mb-3">
+                    <label for="edit-category-name"
+                           class="form-label">
+                        Name
+                    </label>
+
+                    <InputText id="edit-category-name"
+                               class="form-control"
+                               @bind-Value="categoryToEdit.Name" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="edit-category-description"
+                           class="form-label">
+                        Description
+                    </label>
+
+                    <InputTextArea id="edit-category-description"
+                                   class="form-control"
+                                   @bind-Value="categoryToEdit.Description" />
+                </div>
+
+                <button type="submit"
+                        class="btn btn-success me-2"
+                        disabled="@isSaving">
+                    Save Changes
+                </button>
+
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="@CancelEditing">
+                    Cancel
+                </button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+
+@* Status messages *@
+
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <div class="alert alert-success">
+        @successMessage
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger">
+        @errorMessage
+    </div>
+}
+
+
+@* Category list *@
+
+@if (isLoading)
+{
+    <p>Loading categories...</p>
+}
+else if (categories.Count == 0)
+{
+    <div class="alert alert-info">
+        No categories have been created yet.
+    </div>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @foreach (Category category in categories)
+            {
+                <tr>
+                    <td>@category.Name</td>
+                    <td>@category.Description</td>
+
+                    <td>
+                        <button class="btn btn-sm btn-warning me-2"
+                                @onclick="() => StartEditing(category)">
+                            Edit
+                        </button>
+
+                        <button class="btn btn-sm btn-danger"
+                                @onclick="() => DeleteCategoryAsync(category)">
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+
+@code {
+    private List<Category> categories { get; set; } =
+        new List<Category>();
+
+    private Category newCategory { get; set; } =
+        new Category();
+
+    private Category? categoryToEdit { get; set; }
+
+    private string originalCategoryName { get; set; } =
+        string.Empty;
+
+    private string? originalCategoryDescription { get; set; }
+
+    private bool isLoading { get; set; } = true;
+
+    private bool isSaving { get; set; }
+
+    private string? successMessage { get; set; }
+
+    private string? errorMessage { get; set; }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCategoriesAsync();
+
+        isLoading = false;
+    }
+
+
+    private async Task LoadCategoriesAsync()
+    {
+        categories =
+            await ForumService.GetCategoriesAsync();
+    }
+
+
+    private async Task CreateCategoryAsync()
+    {
+        successMessage = null;
+        errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(newCategory.Name))
+        {
+            errorMessage =
+                "Category name is required.";
+
+            return;
+        }
+
+        isSaving = true;
+
+        newCategory.Name =
+            newCategory.Name.Trim();
+
+        await ForumService.AddCategoryAsync(newCategory);
+
+        newCategory = new Category();
+
+        await LoadCategoriesAsync();
+
+        successMessage =
+            "Category created successfully.";
+
+        isSaving = false;
+    }
+
+
+    private void StartEditing(Category category)
+    {
+        successMessage = null;
+        errorMessage = null;
+
+        categoryToEdit = category;
+
+        originalCategoryName =
+            category.Name;
+
+        originalCategoryDescription =
+            category.Description;
+    }
+
+
+    private async Task UpdateCategoryAsync()
+    {
+        if (categoryToEdit == null)
+        {
+            return;
+        }
+
+        successMessage = null;
+        errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(categoryToEdit.Name))
+        {
+            errorMessage =
+                "Category name is required.";
+
+            return;
+        }
+
+        isSaving = true;
+
+        categoryToEdit.Name =
+            categoryToEdit.Name.Trim();
+
+        await ForumService.UpdateCategoryAsync(
+            categoryToEdit);
+
+        categoryToEdit = null;
+
+        await LoadCategoriesAsync();
+
+        successMessage =
+            "Category updated successfully.";
+
+        isSaving = false;
+    }
+
+
+    private void CancelEditing()
+    {
+        if (categoryToEdit != null)
+        {
+            categoryToEdit.Name =
+                originalCategoryName;
+
+            categoryToEdit.Description =
+                originalCategoryDescription;
+        }
+
+        categoryToEdit = null;
+    }
+
+
+    private async Task DeleteCategoryAsync(
+        Category category)
+    {
+        successMessage = null;
+        errorMessage = null;
+
+        bool confirmed =
+            await JSRuntime.InvokeAsync<bool>(
+                "confirm",
+                $"Delete category '{category.Name}'? " +
+                "Its related topics and posts may also be deleted.");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        bool deleted =
+            await ForumService.DeleteCategoryAsync(
+                category.Id);
+
+        if (!deleted)
+        {
+            errorMessage =
+                "Category was not found.";
+
+            return;
+        }
+
+        if (categoryToEdit?.Id == category.Id)
+        {
+            categoryToEdit = null;
+        }
+
+        await LoadCategoriesAsync();
+
+        successMessage =
+            "Category deleted successfully.";
+    }
+}

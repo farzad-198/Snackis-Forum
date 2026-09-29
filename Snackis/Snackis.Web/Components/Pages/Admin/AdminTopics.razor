@@ -1,0 +1,492 @@
+﻿@page "/admin/topics"
+
+@using Microsoft.JSInterop
+@using Snackis.Core.Entities
+@using Snackis.Core.Interfaces
+
+@inject IForumService ForumService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Manage Topics</PageTitle>
+
+<h1>Manage Topics</h1>
+
+<p class="text-muted">
+    Create and manage topics inside forum categories.
+</p>
+
+
+@* Create Topic *@
+
+<div class="card mb-4">
+    <div class="card-header">
+        Create a new topic
+    </div>
+
+    <div class="card-body">
+        @if (categories.Count == 0 && !isLoading)
+        {
+            <div class="alert alert-warning">
+                Create at least one category before creating a topic.
+            </div>
+        }
+        else
+        {
+            <EditForm Model="@newTopic"
+                      OnValidSubmit="@CreateTopicAsync"
+                      FormName="create-topic">
+
+                <div class="mb-3">
+                    <label for="topic-category"
+                           class="form-label">
+                        Category
+                    </label>
+
+                    <InputSelect id="topic-category"
+                                 class="form-select"
+                                 @bind-Value="newTopic.CategoryId">
+
+                        <option value="0">
+                            Select a category
+                        </option>
+
+                        @foreach (Category category in categories)
+                        {
+                            <option value="@category.Id">
+                                @category.Name
+                            </option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="mb-3">
+                    <label for="topic-title"
+                           class="form-label">
+                        Title
+                    </label>
+
+                    <InputText id="topic-title"
+                               class="form-control"
+                               @bind-Value="newTopic.Title" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="topic-description"
+                           class="form-label">
+                        Description
+                    </label>
+
+                    <InputTextArea id="topic-description"
+                                   class="form-control"
+                                   @bind-Value="newTopic.Description" />
+                </div>
+
+                <button type="submit"
+                        class="btn btn-primary"
+                        disabled="@isSaving">
+                    Create Topic
+                </button>
+            </EditForm>
+        }
+    </div>
+</div>
+
+
+@* Edit Topic *@
+
+@if (topicToEdit != null)
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            Edit topic
+        </div>
+
+        <div class="card-body">
+            <EditForm Model="@topicToEdit"
+                      OnValidSubmit="@UpdateTopicAsync"
+                      FormName="edit-topic">
+
+                <div class="mb-3">
+                    <label for="edit-topic-category"
+                           class="form-label">
+                        Category
+                    </label>
+
+                    <InputSelect id="edit-topic-category"
+                                 class="form-select"
+                                 @bind-Value="topicToEdit.CategoryId">
+
+                        @foreach (Category category in categories)
+                        {
+                            <option value="@category.Id">
+                                @category.Name
+                            </option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="mb-3">
+                    <label for="edit-topic-title"
+                           class="form-label">
+                        Title
+                    </label>
+
+                    <InputText id="edit-topic-title"
+                               class="form-control"
+                               @bind-Value="topicToEdit.Title" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="edit-topic-description"
+                           class="form-label">
+                        Description
+                    </label>
+
+                    <InputTextArea id="edit-topic-description"
+                                   class="form-control"
+                                   @bind-Value="topicToEdit.Description" />
+                </div>
+
+                <button type="submit"
+                        class="btn btn-success me-2"
+                        disabled="@isSaving">
+                    Save Changes
+                </button>
+
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="@CancelEditing">
+                    Cancel
+                </button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+
+@* Status messages *@
+
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <div class="alert alert-success">
+        @successMessage
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger">
+        @errorMessage
+    </div>
+}
+
+
+@* Topic list *@
+
+@if (isLoading)
+{
+    <p>Loading topics...</p>
+}
+else
+{
+    @foreach (Category category in categories)
+    {
+        <div class="card mb-4">
+            <div class="card-header">
+                <strong>@category.Name</strong>
+            </div>
+
+            <div class="card-body">
+                @if (!string.IsNullOrWhiteSpace(
+                    category.Description))
+                {
+                    <p class="text-muted">
+                        @category.Description
+                    </p>
+                }
+
+                @if (GetTopicsForCategory(category.Id).Count == 0)
+                {
+                    <div class="alert alert-info mb-0">
+                        No topics have been created
+                        in this category.
+                    </div>
+                }
+                else
+                {
+                    <table class="table table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Description</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach (
+                                Topic topic
+                                in GetTopicsForCategory(category.Id))
+                            {
+                                <tr>
+                                    <td>@topic.Title</td>
+                                    <td>@topic.Description</td>
+
+                                    <td>
+                                        <button class="btn btn-sm btn-warning me-2"
+                                                @onclick="() => StartEditing(topic)">
+                                            Edit
+                                        </button>
+
+                                        <button class="btn btn-sm btn-danger"
+                                                @onclick="() => DeleteTopicAsync(topic)">
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    }
+}
+
+
+@code {
+    private List<Category> categories { get; set; } =
+        new List<Category>();
+
+    private Dictionary<int, List<Topic>>
+        topicsByCategory { get; set; } =
+            new Dictionary<int, List<Topic>>();
+
+    private Topic newTopic { get; set; } =
+        new Topic();
+
+    private Topic? topicToEdit { get; set; }
+
+    private string originalTopicTitle { get; set; } =
+        string.Empty;
+
+    private string? originalTopicDescription { get; set; }
+
+    private int originalCategoryId { get; set; }
+
+    private bool isLoading { get; set; } = true;
+
+    private bool isSaving { get; set; }
+
+    private string? successMessage { get; set; }
+
+    private string? errorMessage { get; set; }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+
+        isLoading = false;
+    }
+
+
+    private async Task LoadDataAsync()
+    {
+        categories =
+            await ForumService.GetCategoriesAsync();
+
+        topicsByCategory =
+            new Dictionary<int, List<Topic>>();
+
+        foreach (Category category in categories)
+        {
+            List<Topic> topics =
+                await ForumService.GetTopicsByCategoryAsync(
+                    category.Id);
+
+            topicsByCategory[category.Id] = topics;
+        }
+    }
+
+
+    private List<Topic> GetTopicsForCategory(
+        int categoryId)
+    {
+        if (topicsByCategory.TryGetValue(
+            categoryId,
+            out List<Topic>? topics))
+        {
+            return topics;
+        }
+
+        return new List<Topic>();
+    }
+
+
+    private async Task CreateTopicAsync()
+    {
+        successMessage = null;
+        errorMessage = null;
+
+        if (newTopic.CategoryId <= 0)
+        {
+            errorMessage =
+                "Please select a category.";
+
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(newTopic.Title))
+        {
+            errorMessage =
+                "Topic title is required.";
+
+            return;
+        }
+
+        isSaving = true;
+
+        newTopic.Title =
+            newTopic.Title.Trim();
+
+        int selectedCategoryId =
+            newTopic.CategoryId;
+
+        await ForumService.AddTopicAsync(newTopic);
+
+        newTopic = new Topic
+        {
+            CategoryId = selectedCategoryId
+        };
+
+        await LoadDataAsync();
+
+        successMessage =
+            "Topic created successfully.";
+
+        isSaving = false;
+    }
+
+
+    private void StartEditing(Topic topic)
+    {
+        successMessage = null;
+        errorMessage = null;
+
+        topicToEdit = topic;
+
+        originalTopicTitle =
+            topic.Title;
+
+        originalTopicDescription =
+            topic.Description;
+
+        originalCategoryId =
+            topic.CategoryId;
+    }
+
+
+    private async Task UpdateTopicAsync()
+    {
+        if (topicToEdit == null)
+        {
+            return;
+        }
+
+        successMessage = null;
+        errorMessage = null;
+
+        if (topicToEdit.CategoryId <= 0)
+        {
+            errorMessage =
+                "Please select a category.";
+
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(topicToEdit.Title))
+        {
+            errorMessage =
+                "Topic title is required.";
+
+            return;
+        }
+
+        isSaving = true;
+
+        topicToEdit.Title =
+            topicToEdit.Title.Trim();
+
+        await ForumService.UpdateTopicAsync(
+            topicToEdit);
+
+        topicToEdit = null;
+
+        await LoadDataAsync();
+
+        successMessage =
+            "Topic updated successfully.";
+
+        isSaving = false;
+    }
+
+
+    private void CancelEditing()
+    {
+        if (topicToEdit != null)
+        {
+            topicToEdit.Title =
+                originalTopicTitle;
+
+            topicToEdit.Description =
+                originalTopicDescription;
+
+            topicToEdit.CategoryId =
+                originalCategoryId;
+        }
+
+        topicToEdit = null;
+    }
+
+
+    private async Task DeleteTopicAsync(
+        Topic topic)
+    {
+        successMessage = null;
+        errorMessage = null;
+
+        bool confirmed =
+            await JSRuntime.InvokeAsync<bool>(
+                "confirm",
+                $"Delete topic '{topic.Title}'? " +
+                "Its related posts may also be deleted.");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        bool deleted =
+            await ForumService.DeleteTopicAsync(
+                topic.Id);
+
+        if (!deleted)
+        {
+            errorMessage =
+                "Topic was not found.";
+
+            return;
+        }
+
+        if (topicToEdit?.Id == topic.Id)
+        {
+            topicToEdit = null;
+        }
+
+        await LoadDataAsync();
+
+        successMessage =
+            "Topic deleted successfully.";
+    }
+}

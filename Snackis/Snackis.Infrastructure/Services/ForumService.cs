@@ -1,8 +1,5 @@
 ﻿using Snackis.Core.Entities;
 using Snackis.Core.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Snackis.Infrastructure.Services
 {
@@ -25,12 +22,52 @@ namespace Snackis.Infrastructure.Services
             _commentRepository = commentRepository;
         }
 
+
+        // Category methods
+
         public async Task<List<Category>> GetCategoriesAsync()
         {
             return await _categoryRepository.GetAllAsync();
         }
 
-        public async Task<List<Topic>> GetTopicsByCategoryAsync(int categoryId)
+        public async Task<Category?> GetCategoryByIdAsync(int id)
+        {
+            return await _categoryRepository.GetByIdAsync(id);
+        }
+
+        public async Task AddCategoryAsync(Category category)
+        {
+            await _categoryRepository.AddAsync(category);
+            await _categoryRepository.SaveChangesAsync();
+        }
+
+        public async Task UpdateCategoryAsync(Category category)
+        {
+            _categoryRepository.Update(category);
+            await _categoryRepository.SaveChangesAsync();
+        }
+
+        public async Task<bool> DeleteCategoryAsync(int id)
+        {
+            Category? category =
+                await _categoryRepository.GetByIdAsync(id);
+
+            if (category == null)
+            {
+                return false;
+            }
+
+            _categoryRepository.Delete(category);
+            await _categoryRepository.SaveChangesAsync();
+
+            return true;
+        }
+
+
+        // Topic methods
+
+        public async Task<List<Topic>> GetTopicsByCategoryAsync(
+            int categoryId)
         {
             List<Topic> topics =
                 await _topicRepository.GetAllAsync();
@@ -39,6 +76,42 @@ namespace Snackis.Infrastructure.Services
                 .Where(topic => topic.CategoryId == categoryId)
                 .ToList();
         }
+
+        public async Task<Topic?> GetTopicByIdAsync(int id)
+        {
+            return await _topicRepository.GetByIdAsync(id);
+        }
+
+        public async Task AddTopicAsync(Topic topic)
+        {
+            await _topicRepository.AddAsync(topic);
+            await _topicRepository.SaveChangesAsync();
+        }
+
+        public async Task UpdateTopicAsync(Topic topic)
+        {
+            _topicRepository.Update(topic);
+            await _topicRepository.SaveChangesAsync();
+        }
+
+        public async Task<bool> DeleteTopicAsync(int id)
+        {
+            Topic? topic =
+                await _topicRepository.GetByIdAsync(id);
+
+            if (topic == null)
+            {
+                return false;
+            }
+
+            _topicRepository.Delete(topic);
+            await _topicRepository.SaveChangesAsync();
+
+            return true;
+        }
+
+
+        // Post methods
 
         public async Task<List<Post>> GetPostsByTopicAsync(int topicId)
         {
@@ -61,6 +134,9 @@ namespace Snackis.Infrastructure.Services
             await _postRepository.SaveChangesAsync();
         }
 
+
+        // Comment methods
+
         public async Task AddCommentAsync(Comment comment)
         {
             await _commentRepository.AddAsync(comment);
@@ -68,4 +144,3 @@ namespace Snackis.Infrastructure.Services
         }
     }
 }
-
