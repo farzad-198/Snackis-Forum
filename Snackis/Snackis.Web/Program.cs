@@ -5,6 +5,9 @@ using Snackis.Core.Entities;
 using Snackis.Infrastructure.Data;
 using Snackis.Web.Components;
 using Snackis.Web.Components.Account;
+using Snackis.Core.Interfaces;
+using Snackis.Infrastructure.Repositories;
+using Snackis.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,6 +38,12 @@ var connectionString =
 
 builder.Services.AddDbContext<SnackisDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+builder.Services.AddScoped(
+    typeof(IRepository<>),
+    typeof(Repository<>));
+
+builder.Services.AddScoped<IForumService, ForumService>();
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 

@@ -1,9 +1,33 @@
+using Microsoft.EntityFrameworkCore;
+using Snackis.Core.Interfaces;
+using Snackis.Infrastructure.Data;
+using Snackis.Infrastructure.Repositories;
+using Snackis.Infrastructure.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Read the database connection string.
+var connectionString =
+    builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException(
+        "Connection string 'DefaultConnection' not found.");
 
+// Register the database context.
+builder.Services.AddDbContext<SnackisDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+// Register repository and forum service.
+builder.Services.AddScoped(
+    typeof(IRepository<>),
+    typeof(Repository<>));
+
+builder.Services.AddScoped<IForumService, ForumService>();
+
+// Add services to the container.
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+
+// Learn more about configuring OpenAPI at:
+// https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
