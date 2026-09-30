@@ -4,7 +4,7 @@
 @using Snackis.Core.Entities
 @using Snackis.Core.Interfaces
 
-@inject IForumService ForumService
+@inject ICategoryService CategoryService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Manage Categories</PageTitle>
@@ -15,8 +15,6 @@
     Create and manage forum categories and topics.
 </p>
 
-
-@* Create Category *@
 
 <div class="card mb-4">
     <div class="card-header">
@@ -59,8 +57,6 @@
     </div>
 </div>
 
-
-@* Edit Category *@
 
 @if (categoryToEdit != null)
 {
@@ -113,8 +109,6 @@
 }
 
 
-@* Status messages *@
-
 @if (!string.IsNullOrWhiteSpace(successMessage))
 {
     <div class="alert alert-success">
@@ -128,9 +122,6 @@
         @errorMessage
     </div>
 }
-
-
-@* Category list *@
 
 @if (isLoading)
 {
@@ -212,7 +203,7 @@ else
     private async Task LoadCategoriesAsync()
     {
         categories =
-            await ForumService.GetCategoriesAsync();
+            await CategoryService.GetCategoriesAsync();
     }
 
 
@@ -234,7 +225,8 @@ else
         newCategory.Name =
             newCategory.Name.Trim();
 
-        await ForumService.AddCategoryAsync(newCategory);
+        await CategoryService.AddCategoryAsync(
+            newCategory);
 
         newCategory = new Category();
 
@@ -285,7 +277,7 @@ else
         categoryToEdit.Name =
             categoryToEdit.Name.Trim();
 
-        await ForumService.UpdateCategoryAsync(
+        await CategoryService.UpdateCategoryAsync(
             categoryToEdit);
 
         categoryToEdit = null;
@@ -332,7 +324,7 @@ else
         }
 
         bool deleted =
-            await ForumService.DeleteCategoryAsync(
+            await CategoryService.DeleteCategoryAsync(
                 category.Id);
 
         if (!deleted)

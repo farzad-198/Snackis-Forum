@@ -6,33 +6,42 @@ using Snackis.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Read the database connection string.
+
+// Database connection
+
 var connectionString =
-    builder.Configuration.GetConnectionString("DefaultConnection")
+    builder.Configuration.GetConnectionString(
+        "DefaultConnection")
     ?? throw new InvalidOperationException(
         "Connection string 'DefaultConnection' not found.");
 
-// Register the database context.
-builder.Services.AddDbContext<SnackisDbContext>(options =>
-    options.UseSqlServer(connectionString));
+builder.Services.AddDbContext<SnackisDbContext>(
+    options =>
+        options.UseSqlServer(connectionString));
 
-// Register repository and forum service.
-builder.Services.AddScoped(
-    typeof(IRepository<>),
-    typeof(Repository<>));
 
-builder.Services.AddScoped<IForumService, ForumService>();
+builder.Services.AddScoped(typeof(IRepository<>),typeof(Repository<>));
 
-// Add services to the container.
+builder.Services.AddScoped<ICategoryService,CategoryService>();
+
+builder.Services.AddScoped<ITopicService,TopicService>();
+
+builder.Services.AddScoped<IPostService,PostService>();
+
+builder.Services.AddScoped<ICommentService,CommentService>();
+
+
+// Controllers and OpenAPI
+
 builder.Services.AddControllers();
 
-// Learn more about configuring OpenAPI at:
-// https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+
+// Configure the HTTP request pipeline
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();

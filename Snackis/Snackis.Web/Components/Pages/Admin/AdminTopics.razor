@@ -4,7 +4,8 @@
 @using Snackis.Core.Entities
 @using Snackis.Core.Interfaces
 
-@inject IForumService ForumService
+@inject ICategoryService CategoryService
+@inject ITopicService TopicService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Manage Topics</PageTitle>
@@ -15,8 +16,6 @@
     Create and manage topics inside forum categories.
 </p>
 
-
-@* Create Topic *@
 
 <div class="card mb-4">
     <div class="card-header">
@@ -92,8 +91,6 @@
 </div>
 
 
-@* Edit Topic *@
-
 @if (topicToEdit != null)
 {
     <div class="card mb-4">
@@ -164,8 +161,6 @@
 }
 
 
-@* Status messages *@
-
 @if (!string.IsNullOrWhiteSpace(successMessage))
 {
     <div class="alert alert-success">
@@ -180,8 +175,6 @@
     </div>
 }
 
-
-@* Topic list *@
 
 @if (isLoading)
 {
@@ -294,7 +287,7 @@ else
     private async Task LoadDataAsync()
     {
         categories =
-            await ForumService.GetCategoriesAsync();
+            await CategoryService.GetCategoriesAsync();
 
         topicsByCategory =
             new Dictionary<int, List<Topic>>();
@@ -302,7 +295,7 @@ else
         foreach (Category category in categories)
         {
             List<Topic> topics =
-                await ForumService.GetTopicsByCategoryAsync(
+                await TopicService.GetTopicsByCategoryAsync(
                     category.Id);
 
             topicsByCategory[category.Id] = topics;
@@ -353,7 +346,7 @@ else
         int selectedCategoryId =
             newTopic.CategoryId;
 
-        await ForumService.AddTopicAsync(newTopic);
+        await TopicService.AddTopicAsync(newTopic);
 
         newTopic = new Topic
         {
@@ -418,7 +411,7 @@ else
         topicToEdit.Title =
             topicToEdit.Title.Trim();
 
-        await ForumService.UpdateTopicAsync(
+        await TopicService.UpdateTopicAsync(
             topicToEdit);
 
         topicToEdit = null;
@@ -468,7 +461,7 @@ else
         }
 
         bool deleted =
-            await ForumService.DeleteTopicAsync(
+            await TopicService.DeleteTopicAsync(
                 topic.Id);
 
         if (!deleted)
