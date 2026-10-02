@@ -1,7 +1,123 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+@using Snackis.Core.Entities
+@using Snackis.Core.Interfaces
 
-<h1>Hello, world!</h1>
+@inject ICategoryService CategoryService
+@inject ITopicService TopicService
+@inject ILogger<Home> Logger
 
-Welcome to your new app.
+<PageTitle>Snackis Forum</PageTitle>
+
+<h1>Snackis Forum</h1>
+
+<p class="text-muted">
+    Browse categories and discover topics.
+</p>
+
+@if (isLoading)
+{
+    <p>Loading the forum...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @errorMessage
+    </div>
+}
+else if (categories.Count == 0)
+{
+    <div class="alert alert-info">
+        No categories have been created yet.
+    </div>
+}
+else
+{
+    @foreach (Category category in categories)
+    {
+        <section class="card mb-4" @key="category.Id">
+            <div class="card-header">
+                <h2 class="h5 mb-0">
+                    @category.Name
+                </h2>
+            </div>
+
+            <div class="card-body">
+                @if (!string.IsNullOrWhiteSpace(category.Description))
+                {
+                    <p class="text-muted">
+                        @category.Description
+                    </p>
+                }
+
+                @if (topicsByCategory[category.Id].Count == 0)
+                {
+                    <p class="mb-0">
+                        No topics have been created in this category.
+                    </p>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush">
+                        @foreach (Topic topic in topicsByCategory[category.Id])
+                        {
+                            <li class="list-group-item" @key="topic.Id">
+                              <h3 class="h6">
+                                    <a href="@($"/topics/{topic.Id}")">
+                                         @topic.Title
+                                   </a>
+                              </h3>
+
+                                @if (!string.IsNullOrWhiteSpace(topic.Description))
+                                {
+                                    <p class="text-muted mb-0">
+                                        @topic.Description
+                                    </p>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </section>
+    }
+}
+
+@code {
+    private List<Category> categories = new();
+
+    private Dictionary<int, List<Topic>> topicsByCategory = new();
+
+    private bool isLoading = true;
+
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            categories =
+                await CategoryService.GetCategoriesAsync();
+
+            foreach (Category category in categories)
+            {
+                topicsByCategory[category.Id] =
+                    await TopicService.GetTopicsByCategoryAsync(
+                        category.Id);
+            }
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to load forum categories and topics.");
+
+            errorMessage =
+                "The forum could not be loaded. Please try again later.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

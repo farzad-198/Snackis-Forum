@@ -1,0 +1,213 @@
+﻿@page "/topics/{TopicId:int}/create"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Snackis.Core.Entities
+@using Snackis.Core.Interfaces
+
+@attribute [Authorize]
+
+@inject ITopicService TopicService
+@inject IPostService PostService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject ILogger<CreatePost> Logger
+
+<PageTitle>Create post</PageTitle>
+
+<a href="@($"/topics/{TopicId}")"
+   class="btn btn-outline-secondary mb-3">
+    Back to topic
+</a>
+
+<h1>Create a post</h1>
+
+@if (isLoading)
+{
+    <p>Loading the topic...</p>
+}
+else
+{
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+
+    @if (topic != null)
+    {
+        <p class="text-muted">
+            Topic: @topic.Title
+        </p>
+
+        <div class="card">
+            <div class="card-body">
+                <EditForm Model="@input"
+                          OnValidSubmit="@CreatePostAsync">
+                    <DataAnnotationsValidator />
+
+                    <fieldset disabled="@isSaving">
+                        <div class="mb-3">
+                            <label for="post-title"
+                                   class="form-label">
+                                Title
+                            </label>
+
+                            <InputText id="post-title"
+                                       class="form-control"
+                                       @bind-Value="input.Title" />
+
+                            <ValidationMessage
+                                For="@(() => input.Title)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="post-content"
+                                   class="form-label">
+                                Content
+                            </label>
+
+                            <InputTextArea id="post-content"
+                                           class="form-control"
+                                           rows="8"
+                                           @bind-Value="input.Content" />
+
+                            <ValidationMessage
+                                For="@(() => input.Content)" />
+                        </div>
+
+                        <button type="submit"
+                                class="btn btn-primary">
+                            @(isSaving ? "Publishing..." : "Publish post")
+                        </button>
+                    </fieldset>
+                </EditForm>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter]
+    public int TopicId { get; set; }
+
+    private Topic? topic;
+
+    private PostInputModel input = new();
+
+    private bool isLoading = true;
+
+    private bool isSaving;
+
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        topic = null;
+        input = new();
+
+        try
+        {
+            topic =
+                await TopicService.GetTopicByIdAsync(TopicId);
+
+            if (topic == null)
+            {
+                errorMessage = "The topic was not found.";
+            }
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to load topic {TopicId}.",
+                TopicId);
+
+            errorMessage =
+                "The topic could not be loaded. Please try again later.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task CreatePostAsync()
+    {
+        if (isSaving || topic == null)
+        {
+            return;
+        }
+
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            var authenticationState =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            var user = authenticationState.User;
+
+            string? userId =
+                user.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (user.Identity?.IsAuthenticated != true
+                || string.IsNullOrWhiteSpace(userId))
+            {
+                errorMessage =
+                    "Please log in before publishing a post.";
+
+                return;
+            }
+
+            Post post = new()
+            {
+                Title = input.Title.Trim(),
+                Content = input.Content.Trim(),
+                TopicId = topic.Id,
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await PostService.AddPostAsync(post);
+
+            NavigationManager.NavigateTo(
+                $"/topics/{topic.Id}");
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to create a post in topic {TopicId}.",
+                TopicId);
+
+            errorMessage =
+                "The post could not be published. Please try again later.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private class PostInputModel
+    {
+        [Required(ErrorMessage = "Please enter a title.")]
+        [StringLength(
+            150,
+            ErrorMessage = "The title cannot exceed 150 characters.")]
+        public string Title { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Please enter the post content.")]
+        [StringLength(
+            5000,
+            ErrorMessage = "The content cannot exceed 5000 characters.")]
+        public string Content { get; set; } = string.Empty;
+    }
+}

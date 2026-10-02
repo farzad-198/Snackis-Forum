@@ -1,0 +1,140 @@
+﻿@page "/topics/{TopicId:int}"
+
+@using Snackis.Core.Entities
+@using Snackis.Core.Interfaces
+
+@inject ITopicService TopicService
+@inject IPostService PostService
+@inject ILogger<TopicPosts> Logger
+
+<PageTitle>Topic posts</PageTitle>
+
+<a href="/" class="btn btn-outline-secondary mb-3">
+    Back to forum
+</a>
+
+@if (isLoading)
+{
+    <p>Loading posts...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @errorMessage
+    </div>
+}
+else if (topic == null)
+{
+    <div class="alert alert-warning">
+        The topic was not found.
+    </div>
+}
+else
+{
+    <h1>@topic.Title</h1>
+
+    <AuthorizeView>
+    <Authorized>
+        <a href="@($"/topics/{TopicId}/create")"
+           class="btn btn-primary mb-3">
+            Create a post
+        </a>
+    </Authorized>
+
+    <NotAuthorized>
+        <p class="text-muted">
+            Log in to create a post.
+        </p>
+    </NotAuthorized>
+</AuthorizeView>
+
+    @if (!string.IsNullOrWhiteSpace(topic.Description))
+    {
+        <p class="text-muted">
+            @topic.Description
+        </p>
+    }
+
+    @if (posts.Count == 0)
+    {
+        <div class="alert alert-info">
+            No posts have been created in this topic yet.
+        </div>
+    }
+    else
+    {
+        @foreach (Post post in posts)
+        {
+            <article class="card mb-3" @key="post.Id">
+                <div class="card-body">
+                    <h2 class="h5">
+                        @post.Title
+                    </h2>
+
+                    <p class="text-muted small">
+                        Published:
+                        @post.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                        UTC
+                    </p>
+
+                    <p class="mb-0">
+                        @post.Content
+                    </p>
+                </div>
+            </article>
+        }
+    }
+}
+
+@code {
+    [Parameter]
+    public int TopicId { get; set; }
+
+    private Topic? topic;
+
+    private List<Post> posts = new();
+
+    private bool isLoading = true;
+
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        topic = null;
+        posts = new();
+
+        try
+        {
+            topic =
+                await TopicService.GetTopicByIdAsync(TopicId);
+
+            if (topic == null)
+            {
+                return;
+            }
+
+            List<Post> loadedPosts =
+                await PostService.GetPostsByTopicAsync(TopicId);
+
+            posts = loadedPosts
+                .OrderByDescending(post => post.CreatedAt)
+                .ToList();
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to load posts for topic {TopicId}.",
+                TopicId);
+
+            errorMessage =
+                "The posts could not be loaded. Please try again later.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
