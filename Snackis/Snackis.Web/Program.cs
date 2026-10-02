@@ -11,10 +11,11 @@ using Snackis.Web.Components.Account;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Authentication
 builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddScoped<IdentityRedirectManager>();
@@ -33,30 +34,33 @@ builder.Services.AddAuthentication(options =>
 })
 .AddIdentityCookies();
 
+// Database
 var connectionString =
     builder.Configuration.GetConnectionString(
         "DefaultConnection")
     ?? throw new InvalidOperationException(
         "Connection string 'DefaultConnection' not found.");
 
-builder.Services.AddDbContext<SnackisDbContext>(
-    options =>
-        options.UseSqlServer(connectionString));
-
-builder.Services.AddScoped(typeof(IRepository<>),typeof(Repository<>));
-
-
-builder.Services.AddScoped<ICategoryService,CategoryService>();
-
-builder.Services.AddScoped<ITopicService,TopicService>();
-
-builder.Services.AddScoped<IPostService,PostService>();
-
-builder.Services.AddScoped<ICommentService,CommentService>();
-
+builder.Services.AddDbContext<SnackisDbContext>(options =>
+    options.UseSqlServer(connectionString));
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
+
+builder.Services.AddScoped(
+    typeof(IRepository<>),
+    typeof(Repository<>));
+
+
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+
+builder.Services.AddScoped<ITopicService, TopicService>();
+
+builder.Services.AddScoped<IPostService, PostService>();
+
+builder.Services.AddScoped<ICommentService, CommentService>();
+
+// Identity and roles
 builder.Services.AddIdentityCore<AppUser>(options =>
 {
     options.SignIn.RequireConfirmedAccount = true;
@@ -64,15 +68,40 @@ builder.Services.AddIdentityCore<AppUser>(options =>
     options.Stores.SchemaVersion =
         IdentitySchemaVersions.Version3;
 })
+.AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<SnackisDbContext>()
 .AddSignInManager()
 .AddDefaultTokenProviders();
 
-builder.Services.AddSingleton<IEmailSender<AppUser>,IdentityNoOpEmailSender>();
+builder.Services.AddSingleton<
+    IEmailSender<AppUser>,
+    IdentityNoOpEmailSender>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager =
+        scope.ServiceProvider
+            .GetRequiredService<RoleManager<IdentityRole>>();
+
+    await RoleSeeder.SeedAsync(roleManager);
+
+    string? adminEmail =
+        builder.Configuration["BootstrapAdmin:Email"];
+
+    if (!string.IsNullOrWhiteSpace(adminEmail))
+    {
+        var userManager =
+            scope.ServiceProvider
+                .GetRequiredService<UserManager<AppUser>>();
+
+        await AdminUserSeeder.SeedAsync(
+            userManager,
+            adminEmail.Trim());
+    }
+}
+// HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
@@ -99,7 +128,7 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-
+// Identity endpoints
 app.MapAdditionalIdentityEndpoints();
 
 app.Run();
