@@ -1,15 +1,15 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore;
 using Snackis.Core.Interfaces;
 using Snackis.Infrastructure.Data;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Snackis.Infrastructure.Repositories
 {
-    public class Repository<T> : IRepository<T> where T : class
+    public class Repository<T> : IRepository<T>
+        where T : class
     {
         private readonly SnackisDbContext _context;
+
         private readonly DbSet<T> _dbSet;
 
         public Repository(SnackisDbContext context)
@@ -26,6 +26,22 @@ namespace Snackis.Infrastructure.Repositories
         public async Task<T?> GetByIdAsync(int id)
         {
             return await _dbSet.FindAsync(id);
+        }
+
+        public async Task<List<T>> FindAsync(
+            Expression<Func<T, bool>> predicate,
+            params Expression<Func<T, object>>[] includes)
+        {
+            IQueryable<T> query = _dbSet
+                .AsNoTracking()
+                .Where(predicate);
+
+            foreach (Expression<Func<T, object>> include in includes)
+            {
+                query = query.Include(include);
+            }
+
+            return await query.ToListAsync();
         }
 
         public async Task AddAsync(T entity)
