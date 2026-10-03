@@ -1,0 +1,417 @@
+﻿@page "/posts/{PostId:int}"
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Snackis.Core.Entities
+@using Snackis.Core.Interfaces
+
+@inject IPostService PostService
+@inject ICommentService CommentService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<AppUser> UserManager
+@inject ILogger<PostDetails> Logger
+
+<PageTitle>Post details</PageTitle>
+
+@if (isLoading)
+{
+    <p>Loading post...</p>
+}
+else if (!string.IsNullOrWhiteSpace(loadError))
+{
+    <div class="alert alert-danger" role="alert">
+        @loadError
+    </div>
+
+    <a href="/" class="btn btn-outline-secondary">
+        Back to forum
+    </a>
+}
+else if (post == null)
+{
+    <div class="alert alert-warning" role="alert">
+        The post was not found.
+    </div>
+
+    <a href="/" class="btn btn-outline-secondary">
+        Back to forum
+    </a>
+}
+else
+{
+    <a href="@($"/topics/{post.TopicId}")"
+       class="btn btn-outline-secondary mb-3">
+        Back to topic
+    </a>
+
+    <article class="card mb-4">
+        <div class="card-body">
+            <h1 class="h3">@post.Title</h1>
+
+            <p class="text-muted small">
+                Author: @GetPostAuthorName(post)
+                <br />
+
+                Published:
+                @post.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                UTC
+            </p>
+
+            <p class="mb-0" style="white-space: pre-wrap;">@post.Content</p>
+        </div>
+    </article>
+
+    <section class="card mb-4">
+        <div class="card-header">
+            Add a comment
+        </div>
+
+        <div class="card-body">
+            @if (!string.IsNullOrWhiteSpace(commentError))
+            {
+                <div class="alert alert-danger" role="alert">
+                    @commentError
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(successMessage))
+            {
+                <div class="alert alert-success" role="status">
+                    @successMessage
+                </div>
+            }
+
+            <EditForm Model="@input"
+                      OnValidSubmit="@AddCommentAsync"
+                      FormName="add-comment">
+                <DataAnnotationsValidator />
+
+                <fieldset disabled="@isSaving">
+                    @if (!isAuthenticated)
+                    {
+                        <div class="mb-3">
+                            <label for="comment-author"
+                                   class="form-label">
+                                Your name
+                            </label>
+
+                            <InputText id="comment-author"
+                                       class="form-control"
+                                       @bind-Value="input.AuthorName" />
+
+                            <ValidationMessage
+                                For="@(() => input.AuthorName)" />
+
+                            <div class="form-text">
+                                Your comment will be marked as a guest comment.
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">
+                            Your account's display name will be shown.
+                        </p>
+                    }
+
+                    <div class="mb-3">
+                        <label for="comment-content"
+                               class="form-label">
+                            Comment
+                        </label>
+
+                        <InputTextArea id="comment-content"
+                                       class="form-control"
+                                       rows="4"
+                                       @bind-Value="input.Content" />
+
+                        <ValidationMessage
+                            For="@(() => input.Content)" />
+                    </div>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        @(isSaving ? "Publishing..." : "Publish comment")
+                    </button>
+                </fieldset>
+            </EditForm>
+        </div>
+    </section>
+
+    <h2 class="h4">
+        Comments (@comments.Count)
+    </h2>
+
+    @if (comments.Count == 0)
+    {
+        <div class="alert alert-info" role="status">
+            No comments have been added yet.
+        </div>
+    }
+    else
+    {
+        @foreach (Comment comment in comments)
+        {
+            <article class="card mb-3" @key="comment.Id">
+                <div class="card-body">
+                    <h3 class="h6">
+                        @GetCommentAuthorName(comment)
+
+                        @if (string.IsNullOrWhiteSpace(comment.UserId))
+                        {
+                            <span class="badge bg-secondary ms-2">
+                                Guest
+                            </span>
+                        }
+                    </h3>
+
+                    <p class="text-muted small">
+                        Published:
+                        @comment.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                        UTC
+                    </p>
+
+                    <p class="mb-0" style="white-space: pre-wrap;">@comment.Content</p>
+                </div>
+            </article>
+        }
+    }
+}
+
+@code {
+    [Parameter]
+    public int PostId { get; set; }
+
+    private Post? post;
+
+    private List<Comment> comments = new();
+
+    private CommentInputModel input = new();
+
+    private bool isLoading = true;
+    private bool isSaving;
+    private bool isAuthenticated;
+
+    private string? loadError;
+    private string? commentError;
+    private string? successMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+
+        loadError = null;
+        commentError = null;
+        successMessage = null;
+
+        post = null;
+        comments = new();
+        input = new();
+
+        try
+        {
+            var authenticationState =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            isAuthenticated =
+                authenticationState.User.Identity?.IsAuthenticated == true;
+
+            post = await PostService.GetPostByIdAsync(PostId);
+
+            if (post == null)
+            {
+                return;
+            }
+
+            comments =
+                await CommentService.GetCommentsByPostAsync(PostId);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to load post {PostId} and its comments.",
+                PostId);
+
+            loadError =
+                "The post could not be loaded. Please try again later.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task AddCommentAsync()
+    {
+        if (isSaving || isLoading || post == null)
+        {
+            return;
+        }
+
+        isSaving = true;
+
+        commentError = null;
+        successMessage = null;
+
+        bool wasSaved = false;
+
+        try
+        {
+            string content = input.Content.Trim();
+
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                commentError = "Please enter a comment.";
+                return;
+            }
+
+            var authenticationState =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            var principal = authenticationState.User;
+
+            string? userId = null;
+            string authorName;
+
+            if (principal.Identity?.IsAuthenticated == true)
+            {
+                AppUser? currentUser =
+                    await UserManager.GetUserAsync(principal);
+
+                if (currentUser == null)
+                {
+                    commentError =
+                        "Your account could not be found. Please log in again.";
+
+                    return;
+                }
+
+                userId = currentUser.Id;
+
+                authorName =
+                    string.IsNullOrWhiteSpace(currentUser.DisplayName)
+                        ? "Forum member"
+                        : currentUser.DisplayName.Trim();
+            }
+            else
+            {
+                authorName = input.AuthorName?.Trim() ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(authorName))
+                {
+                    commentError =
+                        "Please enter your name. If the name field is hidden, refresh the page.";
+
+                    return;
+                }
+            }
+
+            Post? existingPost =
+                await PostService.GetPostByIdAsync(post.Id);
+
+            if (existingPost == null)
+            {
+                commentError =
+                    "This post no longer exists.";
+
+                return;
+            }
+
+            Comment newComment = new()
+            {
+                Content = content,
+                AuthorName = authorName,
+                PostId = existingPost.Id,
+                UserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await CommentService.AddCommentAsync(newComment);
+
+            wasSaved = true;
+            input = new();
+
+            successMessage =
+                "Your comment has been published.";
+
+            comments =
+                await CommentService.GetCommentsByPostAsync(existingPost.Id);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to save or refresh comments for post {PostId}. Saved: {WasSaved}.",
+                PostId,
+                wasSaved);
+
+            if (wasSaved)
+            {
+                successMessage =
+                    "Your comment was saved, but the list could not be refreshed. Refresh the page to see it.";
+            }
+            else
+            {
+                commentError =
+                    "The comment could not be published. Please try again later.";
+            }
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private string GetPostAuthorName(Post currentPost)
+    {
+        if (currentPost.User == null)
+        {
+            return "Unknown author";
+        }
+
+        if (string.IsNullOrWhiteSpace(currentPost.User.DisplayName))
+        {
+            return "Forum member";
+        }
+
+        return currentPost.User.DisplayName;
+    }
+
+    private string GetCommentAuthorName(Comment comment)
+    {
+        if (!string.IsNullOrWhiteSpace(comment.UserId))
+        {
+            if (string.IsNullOrWhiteSpace(comment.User?.DisplayName))
+            {
+                return "Forum member";
+            }
+
+            return comment.User!.DisplayName;
+        }
+
+        if (string.IsNullOrWhiteSpace(comment.AuthorName))
+        {
+            return "Guest";
+        }
+
+        return comment.AuthorName;
+    }
+
+    private class CommentInputModel
+    {
+        [StringLength(
+            50,
+            ErrorMessage = "Your name cannot exceed 50 characters.")]
+        public string? AuthorName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Please enter a comment.")]
+        [StringLength(
+            5000,
+            ErrorMessage = "The comment cannot exceed 5000 characters.")]
+        public string Content { get; set; } = string.Empty;
+    }
+}

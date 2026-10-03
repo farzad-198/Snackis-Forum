@@ -5,36 +5,30 @@ namespace Snackis.Infrastructure.Services
 {
     public class PostService : IPostService
     {
-        private readonly IRepository<Post>
-            _postRepository;
+        private readonly IRepository<Post> _postRepository;
 
-        public PostService(
-            IRepository<Post> postRepository)
+        public PostService(IRepository<Post> postRepository)
         {
             _postRepository = postRepository;
         }
 
+        public async Task<List<Post>> GetPostsByTopicAsync(
+            int topicId)
+        {
+            return await _postRepository.FindAsync(
+                post => post.TopicId == topicId,
+                post => post.User);
+        }
 
-        public async Task<List<Post>>
-            GetPostsByTopicAsync(int topicId)
+        public async Task<Post?> GetPostByIdAsync(int id)
         {
             List<Post> posts =
-                await _postRepository.GetAllAsync();
+                await _postRepository.FindAsync(
+                    post => post.Id == id,
+                    post => post.User);
 
-            return posts
-                .Where(post =>
-                    post.TopicId == topicId)
-                .ToList();
+            return posts.FirstOrDefault();
         }
-
-
-        public async Task<Post?>
-            GetPostByIdAsync(int id)
-        {
-            return await
-                _postRepository.GetByIdAsync(id);
-        }
-
 
         public async Task AddPostAsync(Post post)
         {

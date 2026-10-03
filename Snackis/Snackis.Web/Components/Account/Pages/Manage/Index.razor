@@ -1,6 +1,7 @@
 ﻿@page "/Account/Manage"
 
 @using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Http
 @using Microsoft.AspNetCore.Identity
 @using Snackis.Core.Entities
 
@@ -11,30 +12,75 @@
 <PageTitle>Profile</PageTitle>
 
 <h3>Profile</h3>
+
 <StatusMessage />
 
 <div class="row">
     <div class="col-xl-6">
-        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
+        <EditForm Model="Input"
+                  FormName="profile"
+                  OnValidSubmit="OnValidSubmitAsync"
+                  method="post">
+
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
+
+            <ValidationSummary class="text-danger"
+                               role="alert" />
+
             <div class="form-floating mb-3">
-                <input type="text" value="@username" id="username" class="form-control" placeholder="Choose your username." disabled />
-                <label for="username" class="form-label">Username</label>
+                <input type="text"
+                       value="@username"
+                       id="username"
+                       class="form-control"
+                       placeholder="Username"
+                       disabled />
+
+                <label for="username" class="form-label">
+                    Username
+                </label>
             </div>
+
             <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-control" placeholder="Enter your phone number" />
-                <label for="Input.PhoneNumber" class="form-label">Phone number</label>
-                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
+                <InputText @bind-Value="Input.DisplayName"
+                           id="display-name"
+                           class="form-control"
+                           placeholder="Enter your display name" />
+
+                <label for="display-name" class="form-label">
+                    Display name
+                </label>
+
+                <ValidationMessage For="() => Input.DisplayName"
+                                   class="text-danger" />
             </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Save</button>
+
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.PhoneNumber"
+                           id="phone-number"
+                           class="form-control"
+                           placeholder="Enter your phone number" />
+
+                <label for="phone-number" class="form-label">
+                    Phone number
+                </label>
+
+                <ValidationMessage For="() => Input.PhoneNumber"
+                                   class="text-danger" />
+            </div>
+
+            <button type="submit"
+                    class="w-100 btn btn-lg btn-primary">
+                Save
+            </button>
         </EditForm>
     </div>
 </div>
 
 @code {
     private AppUser? user;
+
     private string? username;
+
     private string? phoneNumber;
 
     [CascadingParameter]
@@ -47,45 +93,126 @@
     {
         Input ??= new();
 
-        user = await UserManager.GetUserAsync(HttpContext.User);
+        user =
+            await UserManager.GetUserAsync(HttpContext.User);
+
         if (user is null)
         {
-            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            RedirectManager.RedirectToInvalidUser(
+                UserManager,
+                HttpContext);
+
             return;
         }
 
-        username = await UserManager.GetUserNameAsync(user);
-        phoneNumber = await UserManager.GetPhoneNumberAsync(user);
+        username =
+            await UserManager.GetUserNameAsync(user);
 
-        Input.PhoneNumber ??= phoneNumber;
+        phoneNumber =
+            await UserManager.GetPhoneNumberAsync(user);
+
+        if (HttpMethods.IsGet(HttpContext.Request.Method))
+        {
+            Input.DisplayName = user.DisplayName;
+            Input.PhoneNumber = phoneNumber;
+        }
     }
 
     private async Task OnValidSubmitAsync()
     {
         if (user is null)
         {
-            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            RedirectManager.RedirectToInvalidUser(
+                UserManager,
+                HttpContext);
+
+            return;
+        }
+
+        string displayName =
+            Input.DisplayName?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            RedirectManager.RedirectToCurrentPageWithStatus(
+                "Error: Please enter a display name.",
+                HttpContext);
+
             return;
         }
 
         if (Input.PhoneNumber != phoneNumber)
         {
-            var setPhoneResult = await UserManager.SetPhoneNumberAsync(user, Input.PhoneNumber);
+            var setPhoneResult =
+                await UserManager.SetPhoneNumberAsync(
+                    user,
+                    Input.PhoneNumber);
+
             if (!setPhoneResult.Succeeded)
             {
-                RedirectManager.RedirectToCurrentPageWithStatus("Error: Failed to set phone number.", HttpContext);
+                RedirectManager.RedirectToCurrentPageWithStatus(
+                    "Error: Failed to set phone number.",
+                    HttpContext);
+
+                return;
+            }
+        }
+
+        if (user.DisplayName != displayName)
+        {
+            user.DisplayName = displayName;
+
+            var updateResult =
+                await UserManager.UpdateAsync(user);
+
+            if (!updateResult.Succeeded)
+            {
+                RedirectManager.RedirectToCurrentPageWithStatus(
+                    "Error: Failed to save the display name.",
+                    HttpContext);
+
                 return;
             }
         }
 
         await SignInManager.RefreshSignInAsync(user);
-        RedirectManager.RedirectToCurrentPageWithStatus("Your profile has been updated", HttpContext);
+
+        RedirectManager.RedirectToCurrentPageWithStatus(
+            "Your profile has been updated.",
+            HttpContext);
     }
 
-    private sealed class InputModel
+   private sealed class InputModel
+{
+    private string? _phoneNumber;
+
+    [Required(ErrorMessage = "Please enter a display name.")]
+    [StringLength(
+        50,
+        ErrorMessage = "The display name cannot exceed 50 characters.")]
+    [Display(Name = "Display name")]
+    public string? DisplayName { get; set; }
+
+    [Phone(ErrorMessage = "Please enter a valid phone number.")]
+    [Display(Name = "Phone number")]
+    public string? PhoneNumber
     {
-        [Phone]
-        [Display(Name = "Phone number")]
-        public string? PhoneNumber { get; set; }
+        get
+        {
+            return _phoneNumber;
+        }
+
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                _phoneNumber = null;
+            }
+            else
+            {
+                _phoneNumber = value.Trim();
+            }
+        }
     }
 }
+    }
