@@ -1,0 +1,225 @@
+﻿@page "/profile-picture"
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Snackis.Core.Entities
+@using Snackis.Core.Interfaces
+
+@attribute [Authorize]
+
+@inject IProfilePictureService ProfilePictureService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<AppUser> UserManager
+@inject ILogger<ProfilePicture> Logger
+
+<PageTitle>Profile picture</PageTitle>
+
+<a href="/Account/Manage"
+   class="btn btn-outline-secondary mb-3">
+    Back to account
+</a>
+
+<h1>Profile picture</h1>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @errorMessage
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <div class="alert alert-success" role="status">
+        @successMessage
+    </div>
+}
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="card">
+        <div class="card-body">
+            @if (!string.IsNullOrWhiteSpace(currentPicturePath))
+            {
+                <img src="@currentPicturePath"
+                     alt="Your profile picture"
+                     width="128"
+                     height="128"
+                     class="rounded-circle mb-3" />
+            }
+            else
+            {
+                <p class="text-muted">
+                    You have not uploaded a profile picture yet.
+                </p>
+            }
+
+             <div class="mb-3">
+                <p class="form-label">
+                    Choose a picture
+                </p>
+
+                <div class="file-picker">
+                    <InputFile id="profile-picture"
+                               class="visually-hidden"
+                               aria-label="Choose file"
+                               accept=".jpg,.jpeg,.png,.webp"
+                               disabled="@isUploading"
+                               OnChange="@UploadPictureAsync" />
+
+                    <label for="profile-picture"
+                           class="btn btn-primary @(isUploading ? "disabled" : "")">
+                        Choose file
+                    </label>
+                </div>
+
+
+                <div class="form-text">
+                    JPEG, PNG or WebP. Maximum 2 MB.
+                    The picture is uploaded automatically after selection.
+                </div>
+            </div>
+
+            @if (isUploading)
+            {
+                <p role="status">Uploading...</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private const long MaxFileSize = 2 * 1024 * 1024;
+
+    private string? currentPicturePath;
+    private string? errorMessage;
+    private string? successMessage;
+
+    private bool isLoading = true;
+    private bool isUploading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            AppUser? user =
+                await UserManager.GetUserAsync(state.User);
+
+            if (user == null)
+            {
+                errorMessage = "Please log in again.";
+                return;
+            }
+
+            currentPicturePath = user.ProfilePicturePath;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to load the profile picture.");
+
+            errorMessage =
+                "Your profile picture could not be loaded.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task UploadPictureAsync(
+        InputFileChangeEventArgs e)
+    {
+        if (isUploading || isLoading)
+        {
+            return;
+        }
+
+        isUploading = true;
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var state =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            if (state.User.Identity?.IsAuthenticated != true)
+            {
+                errorMessage = "Please log in again.";
+                return;
+            }
+
+            AppUser? user =
+                await UserManager.GetUserAsync(state.User);
+
+            if (user == null)
+            {
+                errorMessage = "Your account could not be found.";
+                return;
+            }
+
+            if (e.File.Size > MaxFileSize)
+            {
+                errorMessage = "The image cannot exceed 2 MB.";
+                return;
+            }
+
+            await using Stream stream =
+                e.File.OpenReadStream(MaxFileSize);
+
+            string picturePath =
+                await ProfilePictureService.SaveAsync(stream);
+
+            string? previousPath = user.ProfilePicturePath;
+
+            user.ProfilePicturePath = picturePath;
+
+            IdentityResult result =
+                await UserManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                user.ProfilePicturePath = previousPath;
+
+                errorMessage =
+                    "Your account could not be updated. Please try again.";
+
+                return;
+            }
+
+            currentPicturePath = picturePath;
+
+            successMessage =
+                "Your profile picture has been updated.";
+        }
+        catch (ArgumentException exception)
+        {
+            errorMessage = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to upload the profile picture.");
+
+            errorMessage =
+                "The picture could not be uploaded. Select a valid JPEG, PNG or WebP image and try again.";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+}

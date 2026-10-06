@@ -60,6 +60,15 @@ builder.Services.AddScoped<IPostService, PostService>();
 
 builder.Services.AddScoped<ICommentService, CommentService>();
 
+string profilePictureDirectory = Path.Combine(
+    builder.Environment.ContentRootPath,
+    "wwwroot",
+    "uploads",
+    "profile-pictures");
+
+builder.Services.AddScoped<IProfilePictureService>(services =>
+    new ProfilePictureService(profilePictureDirectory));
+
 // Identity and roles
 builder.Services.AddIdentityCore<AppUser>(options =>
 {
@@ -120,6 +129,8 @@ app.UseStatusCodePagesWithReExecute(
     createScopeForStatusCodePages: true);
 
 app.UseHttpsRedirection();
+
+app.UseStaticFiles();
 
 app.UseAntiforgery();
 

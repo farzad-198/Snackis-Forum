@@ -34,19 +34,19 @@ else
     <h1>@topic.Title</h1>
 
     <AuthorizeView>
-    <Authorized>
-        <a href="@($"/topics/{TopicId}/create")"
-           class="btn btn-primary mb-3">
-            Create a post
-        </a>
-    </Authorized>
+        <Authorized>
+            <a href="@($"/topics/{TopicId}/create")"
+               class="btn btn-primary mb-3">
+                Create a post
+            </a>
+        </Authorized>
 
-    <NotAuthorized>
-        <p class="text-muted">
-            Log in to create a post.
-        </p>
-    </NotAuthorized>
-</AuthorizeView>
+        <NotAuthorized>
+            <p class="text-muted">
+                Log in to create a post.
+            </p>
+        </NotAuthorized>
+    </AuthorizeView>
 
     @if (!string.IsNullOrWhiteSpace(topic.Description))
     {
@@ -73,14 +73,26 @@ else
                         </a>
                     </h2>
 
-                    <p class="text-muted small">
-                        Author: @GetAuthorName(post)
-                        <br />
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        @if (!string.IsNullOrWhiteSpace(
+                            post.User?.ProfilePicturePath))
+                        {
+                            <img src="@post.User?.ProfilePicturePath"
+                                 alt="Author's profile picture"
+                                 width="48"
+                                 height="48"
+                                 class="rounded-circle" />
+                        }
 
-                        Published:
-                        @post.CreatedAt.ToString("yyyy-MM-dd HH:mm")
-                        UTC
-                    </p>
+                        <p class="text-muted small mb-0">
+                            Author: @GetAuthorName(post)
+                            <br />
+
+                            Published:
+                            @post.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                            
+                        </p>
+                    </div>
 
                     <p class="mb-0">
                         @post.Content
@@ -142,6 +154,7 @@ else
             isLoading = false;
         }
     }
+
     private string GetAuthorName(Post post)
     {
         if (post.User == null)
