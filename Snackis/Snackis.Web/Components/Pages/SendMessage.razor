@@ -1,0 +1,290 @@
+﻿@page "/messages/create"
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using Snackis.Core.Entities
+@using Snackis.Core.Interfaces
+
+@attribute [Authorize]
+
+@inject IPrivateMessageService PrivateMessageService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<AppUser> UserManager
+@inject ILogger<SendMessage> Logger
+
+<PageTitle>Send message</PageTitle>
+
+<a href="/messages" class="btn btn-outline-secondary mb-3">
+    Back to messages
+</a>
+
+<h1>Send a private message</h1>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @errorMessage
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <div class="alert alert-success" role="status">
+        @successMessage
+    </div>
+}
+
+@if (isLoading)
+{
+    <p>Loading forum members...</p>
+}
+else if (canSend)
+{
+    @if (recipients.Count == 0)
+    {
+        <div class="alert alert-info" role="status">
+            There are no other forum members to send a message to yet.
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <EditForm Model="@input"
+                          OnValidSubmit="@SendMessageAsync"
+                          FormName="send-private-message">
+                    <DataAnnotationsValidator />
+
+                    <fieldset disabled="@isSaving">
+                        <div class="mb-3">
+                            <label for="message-receiver"
+                                   class="form-label">
+                                To
+                            </label>
+
+                            <InputSelect id="message-receiver"
+                                         class="form-select"
+                                         @bind-Value="input.ReceiverId">
+                                <option value="">
+                                    Choose a forum member
+                                </option>
+
+                                @foreach (AppUser recipient in recipients)
+                                {
+                                    <option value="@recipient.Id">
+                                        @(string.IsNullOrWhiteSpace(recipient.DisplayName)
+                                            ? "Forum member"
+                                            : recipient.DisplayName)
+                                    </option>
+                                }
+                            </InputSelect>
+
+                            <ValidationMessage
+                                For="@(() => input.ReceiverId)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="message-subject"
+                                   class="form-label">
+                                Subject (optional)
+                            </label>
+
+                            <InputText id="message-subject"
+                                       class="form-control"
+                                       maxlength="150"
+                                       @bind-Value="input.Subject" />
+
+                            <ValidationMessage
+                                For="@(() => input.Subject)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="message-content"
+                                   class="form-label">
+                                Message
+                            </label>
+
+                            <InputTextArea id="message-content"
+                                           class="form-control"
+                                           rows="6"
+                                           maxlength="5000"
+                                           @bind-Value="input.Content" />
+
+                            <ValidationMessage
+                                For="@(() => input.Content)" />
+                        </div>
+
+                        <button type="submit"
+                                class="btn btn-primary">
+                            @(isSaving ? "Sending..." : "Send message")
+                        </button>
+                    </fieldset>
+                </EditForm>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<AppUser> recipients = new();
+
+    private MessageInputModel input = new();
+
+    private bool isLoading = true;
+    private bool isSaving;
+    private bool canSend;
+
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            if (state.User.Identity?.IsAuthenticated != true)
+            {
+                errorMessage =
+                    "Please log in to send a message.";
+
+                return;
+            }
+
+            AppUser? currentUser =
+                await UserManager.GetUserAsync(state.User);
+
+            if (currentUser == null)
+            {
+                errorMessage =
+                    "Your account could not be found.";
+
+                return;
+            }
+
+            recipients = await UserManager.Users
+                .AsNoTracking()
+                .Where(user => user.Id != currentUser.Id)
+                .OrderBy(user => user.DisplayName)
+                .ThenBy(user => user.Id)
+                .ToListAsync();
+
+            canSend = true;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to load message recipients.");
+
+            errorMessage =
+                "Forum members could not be loaded. Please try again later.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SendMessageAsync()
+    {
+        if (isSaving || isLoading || !canSend || recipients.Count == 0)
+        {
+            return;
+        }
+
+        isSaving = true;
+
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var state =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            if (state.User.Identity?.IsAuthenticated != true)
+            {
+                canSend = false;
+
+                errorMessage =
+                    "Please log in again before sending a message.";
+
+                return;
+            }
+
+            AppUser? currentUser =
+                await UserManager.GetUserAsync(state.User);
+
+            if (currentUser == null)
+            {
+                canSend = false;
+
+                errorMessage =
+                    "Your account could not be found.";
+
+                return;
+            }
+
+            if (input.ReceiverId == currentUser.Id
+                || !recipients.Any(user => user.Id == input.ReceiverId))
+            {
+                errorMessage =
+                    "Please choose another forum member.";
+
+                return;
+            }
+
+            await PrivateMessageService.SendMessageAsync(
+                currentUser.Id,
+                input.ReceiverId,
+                input.Subject,
+                input.Content);
+
+            input = new();
+
+            successMessage =
+                "Your message has been sent.";
+        }
+        catch (ArgumentException exception)
+        {
+            errorMessage = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to send a private message.");
+
+            errorMessage =
+                "The message could not be sent. Please try again later.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private class MessageInputModel
+    {
+        [Required(ErrorMessage = "Please choose a forum member.")]
+        public string ReceiverId { get; set; } = string.Empty;
+
+        [StringLength(
+            150,
+            ErrorMessage = "The subject cannot exceed 150 characters.")]
+        public string? Subject { get; set; }
+
+        [Required(ErrorMessage = "Please enter a message.")]
+        [StringLength(
+            5000,
+            ErrorMessage = "The message cannot exceed 5000 characters.")]
+        public string Content { get; set; } = string.Empty;
+    }
+}

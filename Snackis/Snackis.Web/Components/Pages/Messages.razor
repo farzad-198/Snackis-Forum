@@ -1,0 +1,229 @@
+﻿@page "/messages"
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Snackis.Core.Entities
+@using Snackis.Core.Interfaces
+
+@attribute [Authorize]
+
+@inject IPrivateMessageService PrivateMessageService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<AppUser> UserManager
+@inject ILogger<Messages> Logger
+
+<PageTitle>Messages</PageTitle>
+
+<a href="/" class="btn btn-outline-secondary mb-3">
+    Back to forum
+</a>
+
+<h1>Messages</h1>
+
+<p class="text-muted">
+    Your private conversations with other forum members.
+</p>
+
+<a href="/messages/create"
+   class="btn btn-primary mb-4">
+    New message
+</a>
+
+@if (isLoading)
+{
+    <p>Loading messages...</p>
+}
+else if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @errorMessage
+    </div>
+}
+else
+{
+    <section class="mb-4">
+        <h2 class="h4">
+            Inbox (@receivedMessages.Count)
+        </h2>
+
+        @if (receivedMessages.Count == 0)
+        {
+            <div class="alert alert-info" role="status">
+                You have not received any messages yet.
+            </div>
+        }
+        else
+        {
+            @foreach (PrivateMessage message in receivedMessages)
+            {
+                <article class="card mb-3" @key="message.Id">
+                    <div class="card-body">
+                        <h3 class="h5">
+                            @(string.IsNullOrWhiteSpace(message.Subject)
+                                ? "No subject"
+                                : message.Subject)
+                        </h3>
+
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            @if (!string.IsNullOrWhiteSpace(
+                                message.Sender?.ProfilePicturePath))
+                            {
+                                <img src="@message.Sender?.ProfilePicturePath"
+                                     alt="Sender's profile picture"
+                                     width="48"
+                                     height="48"
+                                     class="rounded-circle" />
+                            }
+
+                            <p class="text-muted small mb-0">
+                                From: @GetDisplayName(message.Sender)
+                                <br />
+                                Sent: @FormatDate(message.SentAt)
+                            </p>
+                        </div>
+
+                        <p class="mb-0" style="white-space: pre-wrap;">@message.Content</p>
+                    </div>
+                </article>
+            }
+        }
+    </section>
+
+    <section>
+        <h2 class="h4">
+            Sent messages (@sentMessages.Count)
+        </h2>
+
+        @if (sentMessages.Count == 0)
+        {
+            <div class="alert alert-info" role="status">
+                You have not sent any messages yet.
+            </div>
+        }
+        else
+        {
+            @foreach (PrivateMessage message in sentMessages)
+            {
+                <article class="card mb-3" @key="message.Id">
+                    <div class="card-body">
+                        <h3 class="h5">
+                            @(string.IsNullOrWhiteSpace(message.Subject)
+                                ? "No subject"
+                                : message.Subject)
+                        </h3>
+
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            @if (!string.IsNullOrWhiteSpace(
+                                message.Receiver?.ProfilePicturePath))
+                            {
+                                <img src="@message.Receiver?.ProfilePicturePath"
+                                     alt="Receiver's profile picture"
+                                     width="48"
+                                     height="48"
+                                     class="rounded-circle" />
+                            }
+
+                            <p class="text-muted small mb-0">
+                                To: @GetDisplayName(message.Receiver)
+                                <br />
+                                Sent: @FormatDate(message.SentAt)
+                            </p>
+                        </div>
+
+                        <p class="mb-0" style="white-space: pre-wrap;">@message.Content</p>
+                    </div>
+                </article>
+            }
+        }
+    </section>
+}
+
+@code {
+    private List<PrivateMessage> receivedMessages = new();
+
+    private List<PrivateMessage> sentMessages = new();
+
+    private bool isLoading = true;
+
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            if (state.User.Identity?.IsAuthenticated != true)
+            {
+                errorMessage =
+                    "Please log in to view your messages.";
+
+                return;
+            }
+
+            AppUser? currentUser =
+                await UserManager.GetUserAsync(state.User);
+
+            if (currentUser == null)
+            {
+                errorMessage =
+                    "Your account could not be found. Please log in again.";
+
+                return;
+            }
+
+            receivedMessages =
+                await PrivateMessageService
+                    .GetReceivedMessagesAsync(currentUser.Id);
+
+            sentMessages =
+                await PrivateMessageService
+                    .GetSentMessagesAsync(currentUser.Id);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to load private messages.");
+
+            errorMessage =
+                "Your messages could not be loaded. Please try again later.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string GetDisplayName(AppUser? user)
+    {
+        if (string.IsNullOrWhiteSpace(user?.DisplayName))
+        {
+            return "Forum member";
+        }
+
+        return user!.DisplayName;
+    }
+
+    private string FormatDate(DateTime date)
+    {
+        TimeZoneInfo swedenTimeZone =
+            TimeZoneInfo.FindSystemTimeZoneById(
+                OperatingSystem.IsWindows()
+                    ? "W. Europe Standard Time"
+                    : "Europe/Stockholm");
+
+        DateTime utcDate =
+            DateTime.SpecifyKind(date, DateTimeKind.Utc);
+
+        DateTime swedenDate =
+            TimeZoneInfo.ConvertTimeFromUtc(
+                utcDate,
+                swedenTimeZone);
+
+        return swedenDate.ToString("yyyy-MM-dd HH:mm");
+    }
+}

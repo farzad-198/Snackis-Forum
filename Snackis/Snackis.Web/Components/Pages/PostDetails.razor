@@ -65,7 +65,7 @@ else
                     <br />
 
                     Published:
-                    @post.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                    @FormatDate(post.CreatedAt)
                 </p>
             </div>
 
@@ -191,7 +191,7 @@ else
 
                             <p class="text-muted small mb-0">
                                 Published:
-                                @comment.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                                @FormatDate(comment.CreatedAt)
                             </p>
                         </div>
                     </div>
@@ -387,6 +387,25 @@ else
         {
             isSaving = false;
         }
+    }
+
+    private string FormatDate(DateTime date)
+    {
+        TimeZoneInfo swedenTimeZone =
+            TimeZoneInfo.FindSystemTimeZoneById(
+                OperatingSystem.IsWindows()
+                    ? "W. Europe Standard Time"
+                    : "Europe/Stockholm");
+
+        DateTime utcDate =
+            DateTime.SpecifyKind(date, DateTimeKind.Utc);
+
+        DateTime swedenDate =
+            TimeZoneInfo.ConvertTimeFromUtc(
+                utcDate,
+                swedenTimeZone);
+
+        return swedenDate.ToString("yyyy-MM-dd HH:mm");
     }
 
     private string GetPostAuthorName(Post currentPost)

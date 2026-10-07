@@ -11,7 +11,7 @@ using Snackis.Web.Components.Account;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
+// Razor components
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -46,12 +46,12 @@ builder.Services.AddDbContext<SnackisDbContext>(options =>
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-
+// Repository
 builder.Services.AddScoped(
     typeof(IRepository<>),
     typeof(Repository<>));
 
-
+// Services
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 
 builder.Services.AddScoped<ITopicService, TopicService>();
@@ -59,6 +59,10 @@ builder.Services.AddScoped<ITopicService, TopicService>();
 builder.Services.AddScoped<IPostService, PostService>();
 
 builder.Services.AddScoped<ICommentService, CommentService>();
+
+builder.Services.AddScoped<
+    IPrivateMessageService,
+    PrivateMessageService>();
 
 string profilePictureDirectory = Path.Combine(
     builder.Environment.ContentRootPath,
@@ -88,6 +92,7 @@ builder.Services.AddSingleton<
 
 var app = builder.Build();
 
+// Create roles and assign the configured admin
 using (var scope = app.Services.CreateScope())
 {
     var roleManager =
@@ -110,6 +115,7 @@ using (var scope = app.Services.CreateScope())
             adminEmail.Trim());
     }
 }
+
 // HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
