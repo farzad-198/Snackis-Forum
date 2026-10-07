@@ -64,6 +64,8 @@ builder.Services.AddScoped<
     IPrivateMessageService,
     PrivateMessageService>();
 
+builder.Services.AddScoped<IReportService, ReportService>();
+
 string profilePictureDirectory = Path.Combine(
     builder.Environment.ContentRootPath,
     "wwwroot",

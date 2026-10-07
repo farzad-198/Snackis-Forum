@@ -70,6 +70,15 @@ else
             </div>
 
             <p class="mb-0" style="white-space: pre-wrap;">@post.Content</p>
+
+            <AuthorizeView>
+                <Authorized>
+                    <a href="@($"/posts/{post.Id}/report")"
+                       class="btn btn-outline-danger mt-3">
+                        Report post
+                    </a>
+                </Authorized>
+            </AuthorizeView>
         </div>
     </article>
 

@@ -1,0 +1,266 @@
+﻿@page "/admin/reports"
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Snackis.Core.Entities
+@using Snackis.Core.Interfaces
+
+@attribute [Authorize(Roles = "Admin")]
+
+@inject IReportService ReportService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<AdminReports> Logger
+
+<PageTitle>Manage Reports</PageTitle>
+
+<a href="/" class="btn btn-outline-secondary mb-3">
+    Back to forum
+</a>
+
+<h1>Manage Reports</h1>
+
+<p class="text-muted">
+    Review posts reported by forum members.
+</p>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @errorMessage
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <div class="alert alert-success" role="status">
+        @successMessage
+    </div>
+}
+
+@if (isLoading)
+{
+    <p>Loading reports...</p>
+}
+else if (reports.Count == 0)
+{
+    @if (string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-info" role="status">
+            No posts have been reported yet.
+        </div>
+    }
+}
+else
+{
+    <p>
+        Pending: @reports.Count(report => !report.IsReviewed)
+        | Reviewed: @reports.Count(report => report.IsReviewed)
+    </p>
+
+    @foreach (Report report in reports)
+    {
+        <article class="card mb-3" @key="report.Id">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+                    <h2 class="h5 mb-0">
+                        @(report.Post?.Title ?? "Post unavailable")
+                    </h2>
+
+                    @if (report.IsReviewed)
+                    {
+                        <span class="badge bg-secondary">
+                            Reviewed
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-warning text-dark">
+                            Pending
+                        </span>
+                    }
+                </div>
+
+                <p class="text-muted small">
+                    Reported by: @GetDisplayName(report.Reporter)
+                    <br />
+                    Reported: @FormatDate(report.CreatedAt)
+
+                    @if (report.ReviewedAt.HasValue)
+                    {
+                        <br />
+                        <span>
+                            Reviewed: @FormatDate(report.ReviewedAt.Value)
+                        </span>
+                    }
+                </p>
+
+                <h3 class="h6">Reason</h3>
+
+                <p style="white-space: pre-wrap;">@report.Reason</p>
+
+                <div class="d-flex gap-2 flex-wrap">
+                    <a href="@($"/posts/{report.PostId}")"
+                       class="btn btn-outline-primary">
+                        View post
+                    </a>
+
+                    @if (!report.IsReviewed)
+                    {
+                        <button type="button"
+                                class="btn btn-success"
+                                disabled="@reviewingReportId.HasValue"
+                                @onclick="@(() => MarkAsReviewedAsync(report))">
+                            @(reviewingReportId == report.Id
+                                ? "Saving..."
+                                : "Mark as reviewed")
+                        </button>
+                    }
+                </div>
+            </div>
+        </article>
+    }
+}
+
+@code {
+    private List<Report> reports = new();
+
+    private bool isLoading = true;
+
+    private int? reviewingReportId;
+
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            if (state.User.Identity?.IsAuthenticated != true
+                || !state.User.IsInRole("Admin"))
+            {
+                errorMessage =
+                    "You do not have permission to view reports.";
+
+                return;
+            }
+
+            reports = await ReportService.GetReportsAsync();
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to load reports.");
+
+            errorMessage =
+                "Reports could not be loaded. Please try again later.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task MarkAsReviewedAsync(Report report)
+    {
+        if (isLoading || reviewingReportId.HasValue || report.IsReviewed)
+        {
+            return;
+        }
+
+        reviewingReportId = report.Id;
+
+        errorMessage = null;
+        successMessage = null;
+
+        bool wasReviewed = false;
+
+        try
+        {
+            var state =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            if (state.User.Identity?.IsAuthenticated != true
+                || !state.User.IsInRole("Admin"))
+            {
+                reports = new();
+
+                errorMessage =
+                    "You do not have permission to review reports.";
+
+                return;
+            }
+
+            await ReportService.MarkAsReviewedAsync(report.Id);
+
+            wasReviewed = true;
+            report.IsReviewed = true;
+
+            successMessage =
+                "The report has been marked as reviewed.";
+
+            reports = await ReportService.GetReportsAsync();
+        }
+        catch (ArgumentException exception)
+        {
+            errorMessage = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to review or refresh report {ReportId}. Reviewed: {WasReviewed}.",
+                report.Id,
+                wasReviewed);
+
+            if (wasReviewed)
+            {
+                successMessage =
+                    "The report was reviewed, but the list could not be refreshed. Refresh the page to see the updated details.";
+            }
+            else
+            {
+                errorMessage =
+                    "The report could not be reviewed. Please try again later.";
+            }
+        }
+        finally
+        {
+            reviewingReportId = null;
+        }
+    }
+
+    private string GetDisplayName(AppUser? user)
+    {
+        if (string.IsNullOrWhiteSpace(user?.DisplayName))
+        {
+            return "Forum member";
+        }
+
+        return user!.DisplayName;
+    }
+
+    private string FormatDate(DateTime date)
+    {
+        TimeZoneInfo swedenTimeZone =
+            TimeZoneInfo.FindSystemTimeZoneById(
+                OperatingSystem.IsWindows()
+                    ? "W. Europe Standard Time"
+                    : "Europe/Stockholm");
+
+        DateTime utcDate =
+            DateTime.SpecifyKind(date, DateTimeKind.Utc);
+
+        DateTime swedenDate =
+            TimeZoneInfo.ConvertTimeFromUtc(
+                utcDate,
+                swedenTimeZone);
+
+        return swedenDate.ToString("yyyy-MM-dd HH:mm");
+    }
+}

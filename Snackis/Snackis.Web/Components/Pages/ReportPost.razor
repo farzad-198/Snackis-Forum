@@ -1,0 +1,229 @@
+﻿@page "/posts/{PostId:int}/report"
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Snackis.Core.Entities
+@using Snackis.Core.Interfaces
+
+@attribute [Authorize]
+
+@inject IPostService PostService
+@inject IReportService ReportService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<AppUser> UserManager
+@inject ILogger<ReportPost> Logger
+
+<PageTitle>Report post</PageTitle>
+
+<a href="@($"/posts/{PostId}")"
+   class="btn btn-outline-secondary mb-3">
+    Back to post
+</a>
+
+<h1>Report post</h1>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @errorMessage
+    </div>
+}
+
+@if (!string.IsNullOrWhiteSpace(successMessage))
+{
+    <div class="alert alert-success" role="status">
+        @successMessage
+    </div>
+}
+
+@if (isLoading)
+{
+    <p>Loading post...</p>
+}
+else if (post != null)
+{
+    <article class="card mb-4">
+        <div class="card-body">
+            <h2 class="h4">@post.Title</h2>
+
+            <p class="mb-0" style="white-space: pre-wrap;">@post.Content</p>
+        </div>
+    </article>
+
+    @if (!isSubmitted)
+    {
+        <p class="text-muted">
+            Explain why this post should be reviewed by an administrator.
+        </p>
+
+        <EditForm Model="@input"
+                  OnValidSubmit="@SubmitReportAsync"
+                  FormName="report-post">
+            <DataAnnotationsValidator />
+
+            <fieldset disabled="@isSaving">
+                <div class="mb-3">
+                    <label for="report-reason"
+                           class="form-label">
+                        Reason
+                    </label>
+
+                    <InputTextArea id="report-reason"
+                                   class="form-control"
+                                   rows="5"
+                                   maxlength="1000"
+                                   @bind-Value="input.Reason" />
+
+                    <ValidationMessage
+                        For="@(() => input.Reason)" />
+                </div>
+
+                <button type="submit"
+                        class="btn btn-danger">
+                    @(isSaving ? "Submitting..." : "Submit report")
+                </button>
+            </fieldset>
+        </EditForm>
+    }
+}
+
+@code {
+    [Parameter]
+    public int PostId { get; set; }
+
+    private Post? post;
+
+    private ReportInputModel input = new();
+
+    private bool isLoading = true;
+    private bool isSaving;
+    private bool isSubmitted;
+
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+        isSubmitted = false;
+
+        errorMessage = null;
+        successMessage = null;
+
+        post = null;
+        input = new();
+
+        try
+        {
+            if (PostId <= 0)
+            {
+                errorMessage = "The post was not found.";
+                return;
+            }
+
+            post = await PostService.GetPostByIdAsync(PostId);
+
+            if (post == null)
+            {
+                errorMessage = "The post was not found.";
+            }
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to load post {PostId} for reporting.",
+                PostId);
+
+            errorMessage =
+                "The post could not be loaded. Please try again later.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SubmitReportAsync()
+    {
+        if (isSaving || isLoading || isSubmitted || post == null)
+        {
+            return;
+        }
+
+        isSaving = true;
+        errorMessage = null;
+
+        int postId = post.Id;
+
+        try
+        {
+            var state =
+                await AuthenticationStateProvider
+                    .GetAuthenticationStateAsync();
+
+            if (state.User.Identity?.IsAuthenticated != true)
+            {
+                errorMessage =
+                    "Please log in before reporting a post.";
+
+                return;
+            }
+
+            AppUser? currentUser =
+                await UserManager.GetUserAsync(state.User);
+
+            if (currentUser == null)
+            {
+                errorMessage =
+                    "Your account could not be found.";
+
+                return;
+            }
+
+            if (PostId != postId)
+            {
+                return;
+            }
+
+            await ReportService.AddReportAsync(
+                postId,
+                currentUser.Id,
+                input.Reason);
+
+            isSubmitted = true;
+
+            successMessage =
+                "Your report has been submitted for administrator review.";
+        }
+        catch (ArgumentException exception)
+        {
+            errorMessage = exception.Message;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(
+                exception,
+                "Failed to report post {PostId}.",
+                postId);
+
+            errorMessage =
+                "The report could not be submitted. Please try again later.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private class ReportInputModel
+    {
+        [Required(ErrorMessage = "Please enter a reason for the report.")]
+        [StringLength(
+            1000,
+            ErrorMessage = "The reason cannot exceed 1000 characters.")]
+        public string Reason { get; set; } = string.Empty;
+    }
+}
