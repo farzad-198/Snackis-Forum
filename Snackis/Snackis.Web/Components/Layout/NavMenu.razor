@@ -28,6 +28,17 @@
         </div>
 
         <div class="nav-item px-3">
+            <a class="nav-link"
+               href="https://localhost:7185/api"
+               target="_blank"
+               rel="noopener noreferrer">
+                <span class="bi bi-list-nested-nav-menu"
+                      aria-hidden="true"></span>
+                API
+            </a>
+        </div>
+
+        <div class="nav-item px-3">
             <NavLink class="nav-link" href="counter">
                 <span class="bi bi-plus-square-fill-nav-menu"
                       aria-hidden="true"></span>
@@ -54,8 +65,7 @@
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link"
-                             href="messages">
+                    <NavLink class="nav-link" href="messages">
                         <span class="bi bi-list-nested-nav-menu"
                               aria-hidden="true"></span>
                         Messages
@@ -63,8 +73,7 @@
                 </div>
 
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link"
-                             href="Account/Manage">
+                    <NavLink class="nav-link" href="Account/Manage">
                         <span class="bi bi-person-fill-nav-menu"
                               aria-hidden="true"></span>
                         @context.User.Identity?.Name
@@ -72,16 +81,14 @@
                 </div>
 
                 <div class="nav-item px-3">
-                    <form action="Account/Logout"
-                          method="post">
+                    <form action="Account/Logout" method="post">
                         <AntiforgeryToken />
 
                         <input type="hidden"
                                name="ReturnUrl"
                                value="@currentUrl" />
 
-                        <button type="submit"
-                                class="nav-link">
+                        <button type="submit" class="nav-link">
                             <span class="bi bi-arrow-bar-left-nav-menu"
                                   aria-hidden="true"></span>
                             Logout
@@ -92,8 +99,7 @@
 
             <NotAuthorized>
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link"
-                             href="Account/Register">
+                    <NavLink class="nav-link" href="Account/Register">
                         <span class="bi bi-person-nav-menu"
                               aria-hidden="true"></span>
                         Register
@@ -101,8 +107,7 @@
                 </div>
 
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link"
-                             href="Account/Login">
+                    <NavLink class="nav-link" href="Account/Login">
                         <span class="bi bi-person-badge-nav-menu"
                               aria-hidden="true"></span>
                         Login
@@ -114,8 +119,7 @@
         <AuthorizeView Roles="Admin">
             <Authorized>
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link"
-                             href="admin/categories">
+                    <NavLink class="nav-link" href="admin/categories">
                         <span class="bi bi-list-nested-nav-menu"
                               aria-hidden="true"></span>
                         Manage Categories
@@ -123,8 +127,7 @@
                 </div>
 
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link"
-                             href="admin/topics">
+                    <NavLink class="nav-link" href="admin/topics">
                         <span class="bi bi-list-nested-nav-menu"
                               aria-hidden="true"></span>
                         Manage Topics
@@ -132,8 +135,7 @@
                 </div>
 
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link"
-                             href="admin/reports">
+                    <NavLink class="nav-link" href="admin/reports">
                         <span class="bi bi-list-nested-nav-menu"
                               aria-hidden="true"></span>
                         Manage Reports
