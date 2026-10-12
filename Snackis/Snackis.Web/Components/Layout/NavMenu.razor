@@ -1,6 +1,13 @@
-﻿@implements IDisposable
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.Extensions.DependencyInjection
+@using Snackis.Core.Entities
+
+@implements IDisposable
 
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IServiceScopeFactory ScopeFactory
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -38,30 +45,6 @@
             </a>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu"
-                      aria-hidden="true"></span>
-                Counter
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu"
-                      aria-hidden="true"></span>
-                Weather
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="auth">
-                <span class="bi bi-lock-nav-menu"
-                      aria-hidden="true"></span>
-                Auth Required
-            </NavLink>
-        </div>
-
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item px-3">
@@ -76,7 +59,18 @@
                     <NavLink class="nav-link" href="Account/Manage">
                         <span class="bi bi-person-fill-nav-menu"
                               aria-hidden="true"></span>
-                        @context.User.Identity?.Name
+
+                        <span class="text-truncate"
+                              title="@displayName">
+                            @displayName
+                        </span>
+
+                        @if (context.User.IsInRole("Admin"))
+                        {
+                            <span class="badge bg-warning text-dark ms-2 flex-shrink-0">
+                                Admin
+                            </span>
+                        }
                     </NavLink>
                 </div>
 
@@ -150,7 +144,9 @@
 @code {
     private string? currentUrl;
 
-    protected override void OnInitialized()
+    private string displayName = "Account";
+
+    protected override async Task OnInitializedAsync()
     {
         currentUrl =
             NavigationManager.ToBaseRelativePath(
@@ -158,6 +154,28 @@
 
         NavigationManager.LocationChanged +=
             OnLocationChanged;
+
+        var authenticationState =
+            await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        if (authenticationState.User.Identity?.IsAuthenticated == true)
+        {
+            // Read the user with a separate database context.
+            using var scope = ScopeFactory.CreateScope();
+
+            var userManager =
+                scope.ServiceProvider
+                    .GetRequiredService<UserManager<AppUser>>();
+
+            var user =
+                await userManager.GetUserAsync(
+                    authenticationState.User);
+
+            if (!string.IsNullOrWhiteSpace(user?.DisplayName))
+            {
+                displayName = user.DisplayName.Trim();
+            }
+        }
     }
 
     private void OnLocationChanged(
