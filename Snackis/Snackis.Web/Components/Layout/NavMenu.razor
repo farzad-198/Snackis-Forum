@@ -1,5 +1,6 @@
 ﻿@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.Extensions.Configuration
 @using Microsoft.Extensions.DependencyInjection
 @using Snackis.Core.Entities
 
@@ -8,6 +9,7 @@
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IServiceScopeFactory ScopeFactory
+@inject IConfiguration Configuration
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -36,7 +38,7 @@
 
         <div class="nav-item px-3">
             <a class="nav-link"
-               href="https://localhost:7185/api"
+               href="@(Configuration["Api:Url"] ?? "https://localhost:7185/api")"
                target="_blank"
                rel="noopener noreferrer">
                 <span class="bi bi-list-nested-nav-menu"

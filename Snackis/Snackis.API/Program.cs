@@ -32,20 +32,17 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// API documentation for development
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-
-    app.MapScalarApiReference("/api", options =>
-    {
-        options.WithTitle("Snackis API");
-        options.DisableAgent();
-    });
-}
-
 app.UseHttpsRedirection();
 app.UseAuthorization();
+
+// Public API documentation 
+app.MapOpenApi();
+
+app.MapScalarApiReference("/api", options =>
+{
+    options.WithTitle("Snackis API");
+    options.DisableAgent();
+});
 
 app.MapControllers();
 
