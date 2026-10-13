@@ -42,7 +42,13 @@ var connectionString =
         "Connection string 'DefaultConnection' not found.");
 
 builder.Services.AddDbContext<SnackisDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(10),
+            errorNumbersToAdd: null);
+    }));
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
