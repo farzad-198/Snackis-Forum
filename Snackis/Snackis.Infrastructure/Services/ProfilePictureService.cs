@@ -13,9 +13,7 @@ namespace Snackis.Infrastructure.Services
             _storageDirectory = Path.GetFullPath(storageDirectory);
         }
 
-        public async Task<string> SaveAsync(
-            Stream imageStream,
-            CancellationToken cancellationToken = default)
+        public async Task<string> SaveAsync(Stream imageStream,CancellationToken cancellationToken = default)
         {
             using MemoryStream uploadedImage = new();
             byte[] buffer = new byte[8192];
@@ -32,8 +30,7 @@ namespace Snackis.Infrastructure.Services
 
                 if (uploadedImage.Length + bytesRead > MaxFileSize)
                 {
-                    throw new ArgumentException(
-                        "The image cannot exceed 2 MB.");
+                    throw new ArgumentException("The image cannot exceed 2 MB.");
                 }
 
                 uploadedImage.Write(buffer, 0, bytesRead);
@@ -73,8 +70,7 @@ namespace Snackis.Infrastructure.Services
             }
             else
             {
-                throw new ArgumentException(
-                    "Only JPEG, PNG and WebP images are allowed.");
+                throw new ArgumentException("Only JPEG, PNG and WebP images are allowed.");
             }
 
             Directory.CreateDirectory(_storageDirectory);

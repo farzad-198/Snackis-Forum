@@ -7,17 +7,14 @@ namespace Snackis.Infrastructure.Services
     {
         private readonly IRepository<Comment> _commentRepository;
 
-        public CommentService(
-            IRepository<Comment> commentRepository)
+        public CommentService(IRepository<Comment> commentRepository)
         {
             _commentRepository = commentRepository;
         }
 
-        public async Task<List<Comment>> GetCommentsByPostAsync(
-            int postId)
+        public async Task<List<Comment>> GetCommentsByPostAsync(int postId)
         {
-            List<Comment> comments =
-                await _commentRepository.FindAsync(
+            List<Comment> comments = await _commentRepository.FindAsync(
                     comment => comment.PostId == postId,
                     comment => comment.User!);
 
@@ -27,8 +24,7 @@ namespace Snackis.Infrastructure.Services
                 .ToList();
         }
 
-        public async Task AddCommentAsync(
-            Comment comment)
+        public async Task AddCommentAsync(Comment comment)
         {
             await _commentRepository.AddAsync(comment);
 

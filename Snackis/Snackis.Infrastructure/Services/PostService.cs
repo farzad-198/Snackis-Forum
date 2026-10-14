@@ -12,8 +12,7 @@ namespace Snackis.Infrastructure.Services
             _postRepository = postRepository;
         }
 
-        public async Task<List<Post>> GetPostsByTopicAsync(
-            int topicId)
+        public async Task<List<Post>> GetPostsByTopicAsync(int topicId)
         {
             return await _postRepository.FindAsync(
                 post => post.TopicId == topicId,
@@ -22,8 +21,7 @@ namespace Snackis.Infrastructure.Services
 
         public async Task<Post?> GetPostByIdAsync(int id)
         {
-            List<Post> posts =
-                await _postRepository.FindAsync(
+            List<Post> posts = await _postRepository.FindAsync(
                     post => post.Id == id,
                     post => post.User);
 

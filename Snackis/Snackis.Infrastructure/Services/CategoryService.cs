@@ -8,41 +8,33 @@ namespace Snackis.Infrastructure.Services
         private readonly IRepository<Category>
             _categoryRepository;
 
-        public CategoryService(
-            IRepository<Category> categoryRepository)
+        public CategoryService(IRepository<Category> categoryRepository)
         {
             _categoryRepository = categoryRepository;
         }
 
 
-        public async Task<List<Category>>
-            GetCategoriesAsync()
+        public async Task<List<Category>>GetCategoriesAsync()
         {
-            return await
-                _categoryRepository.GetAllAsync();
+            return await _categoryRepository.GetAllAsync();
         }
 
 
-        public async Task<Category?>
-            GetCategoryByIdAsync(int id)
+        public async Task<Category?>GetCategoryByIdAsync(int id)
         {
-            return await
-                _categoryRepository.GetByIdAsync(id);
+            return await _categoryRepository.GetByIdAsync(id);
         }
 
 
-        public async Task AddCategoryAsync(
-            Category category)
+        public async Task AddCategoryAsync(Category category)
         {
-            await _categoryRepository.AddAsync(
-                category);
+            await _categoryRepository.AddAsync(category);
 
             await _categoryRepository.SaveChangesAsync();
         }
 
 
-        public async Task UpdateCategoryAsync(
-            Category category)
+        public async Task UpdateCategoryAsync(Category category)
         {
             _categoryRepository.Update(category);
 
@@ -50,11 +42,9 @@ namespace Snackis.Infrastructure.Services
         }
 
 
-        public async Task<bool> DeleteCategoryAsync(
-            int id)
+        public async Task<bool> DeleteCategoryAsync(int id)
         {
-            Category? category =
-                await _categoryRepository.GetByIdAsync(id);
+            Category? category = await _categoryRepository.GetByIdAsync(id);
 
             if (category == null)
             {

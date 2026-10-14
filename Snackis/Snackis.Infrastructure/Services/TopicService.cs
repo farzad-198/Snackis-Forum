@@ -5,11 +5,9 @@ namespace Snackis.Infrastructure.Services
 {
     public class TopicService : ITopicService
     {
-        private readonly IRepository<Topic>
-            _topicRepository;
+        private readonly IRepository<Topic> _topicRepository;
 
-        public TopicService(
-            IRepository<Topic> topicRepository)
+        public TopicService( IRepository<Topic> topicRepository)
         {
             _topicRepository = topicRepository;
         }
@@ -18,26 +16,21 @@ namespace Snackis.Infrastructure.Services
         public async Task<List<Topic>>
             GetTopicsByCategoryAsync(int categoryId)
         {
-            List<Topic> topics =
-                await _topicRepository.GetAllAsync();
+            List<Topic> topics = await _topicRepository.GetAllAsync();
 
-            return topics
-                .Where(topic =>
+            return topics.Where(topic =>
                     topic.CategoryId == categoryId)
-                .ToList();
+                   .ToList();
         }
 
 
-        public async Task<Topic?>
-            GetTopicByIdAsync(int id)
+        public async Task<Topic?> GetTopicByIdAsync(int id)
         {
-            return await
-                _topicRepository.GetByIdAsync(id);
+            return await _topicRepository.GetByIdAsync(id);
         }
 
 
-        public async Task AddTopicAsync(
-            Topic topic)
+        public async Task AddTopicAsync(Topic topic)
         {
             await _topicRepository.AddAsync(topic);
 
@@ -45,8 +38,7 @@ namespace Snackis.Infrastructure.Services
         }
 
 
-        public async Task UpdateTopicAsync(
-            Topic topic)
+        public async Task UpdateTopicAsync(Topic topic)
         {
             _topicRepository.Update(topic);
 
@@ -54,11 +46,9 @@ namespace Snackis.Infrastructure.Services
         }
 
 
-        public async Task<bool> DeleteTopicAsync(
-            int id)
+        public async Task<bool> DeleteTopicAsync(int id)
         {
-            Topic? topic =
-                await _topicRepository.GetByIdAsync(id);
+            Topic? topic = await _topicRepository.GetByIdAsync(id);
 
             if (topic == null)
             {
