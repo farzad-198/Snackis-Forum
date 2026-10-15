@@ -154,17 +154,11 @@ else
 
             var user = authenticationState.User;
 
-            string? userId =
-                user.FindFirstValue(ClaimTypes.NameIdentifier);
+            string userId =
+                user.FindFirstValue(ClaimTypes.NameIdentifier)
+                 ?? throw new InvalidOperationException(
+                   "The authenticated user has no user ID.");
 
-            if (user.Identity?.IsAuthenticated != true
-                || string.IsNullOrWhiteSpace(userId))
-            {
-                errorMessage =
-                    "Please log in before publishing a post.";
-
-                return;
-            }
 
             Post post = new()
             {
